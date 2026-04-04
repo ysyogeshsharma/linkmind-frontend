@@ -31,7 +31,7 @@ export default function Header() {
           href="/"
           className="shrink-0 text-xl font-bold tracking-tight text-slate-900 transition-opacity hover:opacity-90"
         >
-          LinkMind
+          TechPost
         </Link>
 
         <nav className="flex min-w-0 flex-1 items-center justify-end gap-1 sm:gap-2">

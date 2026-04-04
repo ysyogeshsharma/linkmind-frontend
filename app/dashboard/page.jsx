@@ -12,11 +12,12 @@ import { useRouter } from "next/navigation";
 import { useSession } from "../SessionWrapper";
 import { motion } from "framer-motion";
 import { NEXT_PUBLIC_API_URL } from "../../lib/config";
-const GUEST_DRAFT_KEY = "linkmind_guest_draft";
+const GUEST_DRAFT_KEY = "techpost_guest_draft";
 const API_BASE = NEXT_PUBLIC_API_URL;
+
 const DEFAULT_TEMPLATE = `Share your thoughts and expertise here. Start with a hook, add value, and end with a question or call to action.
 
-#ProfessionalGrowth #LinkMind`;
+#ProfessionalGrowth #TechPost`;
 
 // Fixed templates for guests (no API) — same tone options as AI for consistency
 const FIXED_TEMPLATES = {
@@ -104,10 +105,12 @@ export default function Dashboard() {
       setGenerated("");
       setEditing("");
       setImageUrl("");
-
+      const authToken = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+      const headers = { "Content-Type": "application/json" };
+      if (authToken) headers.Authorization = `Bearer ${authToken}`;
       const res = await fetch(`${API_BASE}/api/posts/generate`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           topics,
           tone,
@@ -146,9 +149,12 @@ export default function Dashboard() {
     try {
       setSaving(true);
       setSaveMessage("");
+      const authToken = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+      const headers = { "Content-Type": "application/json" };
+      if (authToken) headers.Authorization = `Bearer ${authToken}`;
       const res = await fetch(`${API_BASE}/api/posts`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           userId: session.user.id,
           content: editing,
@@ -215,7 +221,7 @@ export default function Dashboard() {
       >
         <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-            LinkMind Post Generator
+            Tech Post Generator
           </h1>
           <p className="mt-1 text-slate-600">
             Select topics, choose a tone, and generate professional posts

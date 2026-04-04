@@ -7,11 +7,11 @@ import { Inter } from "next/font/google";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata = {
-  title: "LinkMind",
+  title: "TechPost",
   icons: {
     icon: "/assets/app_logo.png",
   },
-  description: "Generate professional posts with LinkMind",
+  description: "Generate professional posts with TechPost",
 };
 
 export default function RootLayout({ children }) {
@@ -29,7 +29,7 @@ export default function RootLayout({ children }) {
                 <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
                   <div className="flex flex-col items-center justify-between gap-4 sm:flex-row sm:items-center">
                     <p className="text-sm text-slate-500">
-                      © {new Date().getFullYear()} LinkMind. All rights
+                      © {new Date().getFullYear()} TechAtma. All rights
                       reserved.
                     </p>
                     <div className="flex gap-6 text-sm text-slate-500">

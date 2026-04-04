@@ -10,7 +10,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
-const STORAGE_KEY = 'linkmind_session';
+const STORAGE_KEY = 'techpost_session';
 
 const SessionContext = createContext();
 
@@ -18,7 +18,7 @@ function getStoredSession() {
   if (typeof window === 'undefined') return null;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
+    if (!raw || raw.trim() === '') return null;
     const data = JSON.parse(raw);
     if (data?.user?.email) return data;
   } catch (_) {}

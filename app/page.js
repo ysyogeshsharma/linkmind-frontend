@@ -14,10 +14,10 @@ export default function Home() {
         <div className="max-w-xl text-center md:text-left">
           <h1 className="mb-6 text-4xl font-bold leading-tight tracking-tight text-slate-900 md:text-5xl">
             Create engaging{' '}
-            <span className="text-indigo-600">posts</span> with LinkMind
+            <span className="text-indigo-600">posts</span> with TechPost
           </h1>
           <p className="mb-10 text-lg leading-relaxed text-slate-600">
-            LinkMind helps you generate professional content tailored to your
+            TechPost helps you generate professional content tailored to your
             interests and industry. Save time and boost your presence.
           </p>
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-start">
@@ -52,12 +52,12 @@ export default function Home() {
         <div className="flex w-full justify-center md:w-1/2 md:justify-end">
           <div className="relative w-full max-w-md">
             <div className="absolute -inset-1 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 opacity-20 blur-xl" />
-            <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
+            <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-700 p-6 shadow-xl">
               <Image
                 src="/assets/app_logo.png"
-                alt="LinkMind"
-                width={400}
-                height={300}
+                alt="TechPost"
+                width={600}
+                height={338}
                 className="w-full rounded-xl object-cover"
               />
             </div>

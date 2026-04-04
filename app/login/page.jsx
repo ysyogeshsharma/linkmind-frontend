@@ -30,6 +30,7 @@ function LoginContent() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [token, setToken] = useState('');
   const router = useRouter();
   const { signIn, status } = useSession();
 
@@ -131,14 +132,14 @@ function LoginContent() {
           <div className="mx-auto mb-4 flex justify-center">
             {/* <Image
               src="/assets/app_logo.png"
-              alt="LinkMind"
+              alt="TechPost"
               width={80}
               height={80}
               className="rounded-xl object-contain"
               priority
             /> */}
           </div>
-          <h2 className="text-xl font-bold text-slate-800">LinkMind</h2>
+          <h2 className="text-xl font-bold text-slate-800">TechPost</h2>
           <p className="mt-1 text-sm text-slate-600">
             {mode === 'register'
               ? 'Create an account to use AI post generation'
