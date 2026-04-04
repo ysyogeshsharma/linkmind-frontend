@@ -6,7 +6,7 @@ import { useSession } from '../app/SessionWrapper';
 const LINKEDIN_BLUE = '#0a66c2';
 const LINKEDIN_DARK = '#004182';
 
-export default function LinkedInPreview({ content = '', imageUrl = '' }) {
+export default function LinkedInPreview({ content = '', imageUrl = '', postType = 'regular', jobDetails = null }) {
   const { data: session } = useSession();
   const name = session?.user?.name || 'Your Name';
   const title = 'Product Manager';
@@ -104,21 +104,48 @@ export default function LinkedInPreview({ content = '', imageUrl = '' }) {
           </button>
         </div>
 
-        <div
-          className="mb-3 whitespace-pre-wrap break-words text-sm leading-relaxed"
-          style={{ color: 'rgba(0,0,0,0.9)' }}
-        >
-          {formatContent(content)}
-        </div>
+        {postType === 'job' && jobDetails ? (
+          // Job Posting Preview - Show only AI-generated content
+          <>
+            {imageUrl && (
+              <div className="-mx-4 mb-3">
+                <img
+                  src={imageUrl}
+                  alt="Job Post"
+                  className="h-auto w-full object-cover"
+                />
+              </div>
+            )}
 
-        {imageUrl && (
-          <div className="-mx-4 mb-3 mt-3">
-            <img
-              src={imageUrl}
-              alt="Post"
-              className="h-auto w-full object-cover"
-            />
-          </div>
+            {content && (
+              <div
+                className="mb-3 whitespace-pre-wrap break-words text-sm leading-relaxed"
+                style={{ color: 'rgba(0,0,0,0.9)' }}
+              >
+                {formatContent(content)}
+              </div>
+            )}
+          </>
+        ) : (
+          // Regular Post Preview
+          <>
+            {imageUrl && (
+              <div className="-mx-4 mb-3">
+                <img
+                  src={imageUrl}
+                  alt="Post"
+                  className="h-auto w-full object-cover"
+                />
+              </div>
+            )}
+
+            <div
+              className="mb-3 whitespace-pre-wrap break-words text-sm leading-relaxed"
+              style={{ color: 'rgba(0,0,0,0.9)' }}
+            >
+              {formatContent(content)}
+            </div>
+          </>
         )}
 
         {content && (

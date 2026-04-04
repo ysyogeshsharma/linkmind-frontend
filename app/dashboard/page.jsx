@@ -7,6 +7,9 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import TopicSelector from "../../components/TopicSelector";
 import PostEditor from "../../components/PostEditor";
+import PostTypeSelector from "../../components/PostTypeSelector";
+import ImageUploader from "../../components/ImageUploader";
+import JobDetailsForm from "../../components/JobDetailsForm";
 import LinkedInPreview from "../../components/LinkedInPreview";
 import { useRouter } from "next/navigation";
 import { useSession } from "../SessionWrapper";
@@ -68,15 +71,28 @@ export default function Dashboard() {
   const { data: session, status, signOut } = useSession();
   const isAuthenticated = status === "authenticated";
 
+  // State management
+  const [postType, setPostType] = useState("regular");
   const [topics, setTopics] = useState([]);
   const [tone, setTone] = useState("professional");
   const [generated, setGenerated] = useState("");
   const [editing, setEditing] = useState("");
   const [useImage, setUseImage] = useState(false);
   const [imageUrl, setImageUrl] = useState("");
+  const [imageSource, setImageSource] = useState("unsplash");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
+  const [jobDetails, setJobDetails] = useState({
+    title: "",
+    company: "",
+    location: "",
+    jobType: "",
+    salaryMin: "",
+    salaryMax: "",
+    currency: "USD",
+    description: "",
+  });
 
   const loadInitialEditing = useCallback(() => {
     if (isAuthenticated) return;
@@ -98,13 +114,16 @@ export default function Dashboard() {
   }, [isAuthenticated, editing]);
 
   /** AI generate — logged-in only, calls API */
-  async function generate() {
+  const generate = useCallback(async () => {
     if (!isAuthenticated) return;
     try {
       setLoading(true);
       setGenerated("");
       setEditing("");
-      setImageUrl("");
+      // Only clear image if it's from Unsplash, keep custom uploaded images
+      if (imageSource !== 'cloudinary') {
+        setImageUrl("");
+      }
       const authToken = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
       const headers = { "Content-Type": "application/json" };
       if (authToken) headers.Authorization = `Bearer ${authToken}`;
@@ -116,6 +135,10 @@ export default function Dashboard() {
           tone,
           useImage,
           userId: session?.user?.id,
+          postType,
+          jobDetails: postType === "job" ? jobDetails : null,
+          imageUrl: imageUrl || undefined,
+          imageSource,
         }),
       });
 
@@ -131,6 +154,9 @@ export default function Dashboard() {
         if (data.imageUrl) {
           setImageUrl(data.imageUrl);
         }
+        if (data.imageSource) {
+          setImageSource(data.imageSource);
+        }
       } else {
         const errorText = data.error || "Failed to generate post";
         setGenerated(errorText);
@@ -141,7 +167,7 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [isAuthenticated, topics, tone, useImage, session?.user?.id, postType, jobDetails, imageUrl, imageSource]);
 
   /** Save post for logged-in user (API -> DB) */
   async function savePost() {
@@ -161,6 +187,9 @@ export default function Dashboard() {
           topics,
           tone,
           imageUrl: imageUrl || undefined,
+          postType,
+          imageSource,
+          jobDetails: postType === "job" ? jobDetails : null,
         }),
       });
       const data = await res.json();
@@ -224,7 +253,7 @@ export default function Dashboard() {
             Tech Post Generator
           </h1>
           <p className="mt-1 text-slate-600">
-            Select topics, choose a tone, and generate professional posts
+            Create professional posts and job postings for your network
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-3">
@@ -233,16 +262,6 @@ export default function Dashboard() {
               <span className="hidden truncate text-sm text-slate-600 sm:inline">
                 Welcome {session?.user?.name}
               </span>
-              {/* <button
-                type="button"
-                onClick={() => {
-                  signOut();
-                  router.push("/");
-                }}
-                className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-              >
-                Sign Out
-              </button> */}
             </>
           ) : (
             <Link
@@ -255,9 +274,19 @@ export default function Dashboard() {
         </div>
       </motion.header>
 
-      <motion.section variants={itemVariants} className="mb-6">
-        <TopicSelector value={topics} onChange={setTopics} />
-      </motion.section>
+      {/* Post Type Selector */}
+      {isAuthenticated && (
+        <motion.section variants={itemVariants} className="mb-6">
+          <PostTypeSelector value={postType} onChange={setPostType} />
+        </motion.section>
+      )}
+
+      {/* Topic Selector - only for regular posts */}
+      {postType === "regular" && (
+        <motion.section variants={itemVariants} className="mb-6">
+          <TopicSelector value={topics} onChange={setTopics} />
+        </motion.section>
+      )}
 
       <motion.section
         className="flex flex-wrap items-center gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:gap-6 sm:p-6"
@@ -290,7 +319,7 @@ export default function Dashboard() {
             Include image
           </label>
         </div>
-        {isAuthenticated ? (
+        {isAuthenticated && postType === "regular" ? (
           <button
             type="button"
             onClick={generate}
@@ -339,7 +368,7 @@ export default function Dashboard() {
               </>
             )}
           </button>
-        ) : (
+        ) : !isAuthenticated ? (
           <div className="ml-auto flex flex-wrap items-center gap-3">
             <button
               type="button"
@@ -364,8 +393,95 @@ export default function Dashboard() {
               Fixed template · <Link href="/login" className="text-indigo-600 hover:underline">Log in</Link> for AI
             </span>
           </div>
-        )}
+        ) : null}
       </motion.section>
+
+      {/* Image Uploader - hidden if "Include image" is checked, for both regular and job posts */}
+      {isAuthenticated && !useImage && (
+        <motion.section variants={itemVariants} className="mt-6">
+          <ImageUploader
+            onImageUpload={(url, source) => {
+              setImageUrl(url);
+              setImageSource(source);
+            }}
+            onImageRemove={() => {
+              setImageUrl("");
+              setImageSource("unsplash");
+            }}
+            currentImageUrl={imageUrl}
+          />
+        </motion.section>
+      )}
+
+      {/* Job Details Form - only show for job posts */}
+      {isAuthenticated && (
+        <motion.section variants={itemVariants} className="mt-6">
+          <JobDetailsForm
+            jobDetails={jobDetails}
+            onChange={setJobDetails}
+            visible={postType === "job"}
+          />
+          
+          {/* Create Job Post Button - shown at bottom for job posts */}
+          {postType === "job" && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              className="mt-4 flex justify-end"
+            >
+              <button
+                type="button"
+                onClick={generate}
+                disabled={loading || !jobDetails.title || !jobDetails.company || !jobDetails.location || !jobDetails.jobType}
+                className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {loading ? (
+                  <>
+                    <svg
+                      className="h-5 w-5 animate-spin"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l1.293 1.293a1 1 0 001.414-1.414z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    Create Job Post
+                  </>
+                )}
+              </button>
+            </motion.div>
+          )}
+        </motion.section>
+      )}
 
       <motion.section
         className="mt-6 grid gap-6 md:grid-cols-2"
@@ -381,7 +497,12 @@ export default function Dashboard() {
           />
         </div>
         <div className="min-w-0">
-          <LinkedInPreview content={editing} imageUrl={imageUrl} />
+          <LinkedInPreview 
+            content={editing} 
+            imageUrl={imageUrl}
+            postType={postType}
+            jobDetails={postType === "job" ? jobDetails : null}
+          />
         </div>
       </motion.section>
     </motion.div>

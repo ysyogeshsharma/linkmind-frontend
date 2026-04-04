@@ -15,12 +15,26 @@ const availableTopics = [
 ];
 
 export default function TopicSelector({ value = [], onChange }) {
+  const [customTopic, setCustomTopic] = React.useState('');
   const selected = Array.isArray(value) ? value : [];
 
   function toggleTopic(topic) {
     const newSelection = selected.includes(topic)
       ? selected.filter((t) => t !== topic)
       : [...selected, topic];
+    onChange?.(newSelection);
+  }
+
+  function addCustomTopic() {
+    if (customTopic.trim() && !selected.includes(customTopic.trim())) {
+      const newSelection = [...selected, customTopic.trim()];
+      onChange?.(newSelection);
+      setCustomTopic('');
+    }
+  }
+
+  function removeTopic(topic) {
+    const newSelection = selected.filter((t) => t !== topic);
     onChange?.(newSelection);
   }
 
@@ -34,7 +48,7 @@ export default function TopicSelector({ value = [], onChange }) {
       <h3 className="mb-4 text-base font-semibold text-slate-800">
         Select Topics
       </h3>
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-3 mb-4">
         {availableTopics.map((topic) => {
           const isSelected = selected.includes(topic);
           return (
@@ -52,6 +66,51 @@ export default function TopicSelector({ value = [], onChange }) {
             </motion.button>
           );
         })}
+      </div>
+
+      {/* Selected custom topics */}
+      {selected.length > 0 && (
+        <div className="mb-4 pb-4 border-b border-slate-200">
+          <p className="text-xs font-medium text-slate-600 mb-2">Selected Topics:</p>
+          <div className="flex flex-wrap gap-2">
+            {selected.map((topic) => (
+              <motion.div
+                key={topic}
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.8, opacity: 0 }}
+                className="inline-flex items-center gap-2 rounded-full bg-indigo-100 px-3 py-1 text-sm text-indigo-700"
+              >
+                {topic}
+                <button
+                  onClick={() => removeTopic(topic)}
+                  className="text-indigo-500 hover:text-indigo-700"
+                >
+                  ✕
+                </button>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Custom topic input */}
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={customTopic}
+          onChange={(e) => setCustomTopic(e.target.value)}
+          onKeyPress={(e) => e.key === 'Enter' && addCustomTopic()}
+          placeholder="Add custom topic..."
+          className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+        />
+        <button
+          onClick={addCustomTopic}
+          disabled={!customTopic.trim()}
+          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Add
+        </button>
       </div>
     </motion.div>
   );
