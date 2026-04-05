@@ -20,9 +20,19 @@ function getStoredSession() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw || raw.trim() === '') return null;
     const data = JSON.parse(raw);
-    if (data?.user?.email) return data;
-  } catch (_) {}
-  return null;
+    // Validate that we have a proper user with a non-fallback ID
+    if (data?.user?.email && data.user.id && data.user.id !== 'undefined' && data.user.id !== 'null' && data.user.id.trim() !== '') {
+      return data;
+    } else {
+      // Clear invalid session data
+      localStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
+  } catch (_) {
+    // Clear corrupted session data
+    localStorage.removeItem(STORAGE_KEY);
+    return null;
+  }
 }
 
 function saveSession(session) {

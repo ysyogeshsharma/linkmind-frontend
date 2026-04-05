@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "../SessionWrapper";
 import { motion } from "framer-motion";
 import { NEXT_PUBLIC_API_URL } from "../../lib/config";
+import { authenticatedFetch } from "../../utils/api";
 const GUEST_DRAFT_KEY = "techpost_guest_draft";
 const API_BASE = NEXT_PUBLIC_API_URL;
 
@@ -71,6 +72,10 @@ export default function Dashboard() {
   const { data: session, status, signOut } = useSession();
   const isAuthenticated = status === "authenticated";
 
+  // Check if user has a valid user ID (not a fallback and not undefined)
+  const hasValidUserId = session?.user?.id && session.user.id !== 'undefined' && session.user.id !== 'null' && session.user.id.trim() !== '';
+
+  // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
   // State management
   const [postType, setPostType] = useState("regular");
   const [topics, setTopics] = useState([]);
@@ -94,28 +99,26 @@ export default function Dashboard() {
     description: "",
   });
 
-  const loadInitialEditing = useCallback(() => {
-    if (isAuthenticated) return;
-    const saved = getGuestDraft();
-    if (saved != null) setEditing(saved);
-    else setEditing(DEFAULT_TEMPLATE);
-  }, [isAuthenticated]);
+  // Animation variants for framer-motion
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: { duration: 0.4, when: "beforeChildren", staggerChildren: 0.06 },
+    },
+  };
 
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      loadInitialEditing();
-    }
-  }, [status, loadInitialEditing]);
-
-  useEffect(() => {
-    if (!isAuthenticated && editing !== "" && editing !== DEFAULT_TEMPLATE) {
-      saveGuestDraft(editing);
-    }
-  }, [isAuthenticated, editing]);
+  const itemVariants = {
+    hidden: { y: 10, opacity: 0 },
+    visible: { y: 0, opacity: 1, transition: { duration: 0.28 } },
+  };
 
   /** AI generate — logged-in only, calls API */
   const generate = useCallback(async () => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || !hasValidUserId) {
+      setGenerated("Please log in to use this feature.");
+      return;
+    }
     try {
       setLoading(true);
       setGenerated("");
@@ -127,20 +130,33 @@ export default function Dashboard() {
       const authToken = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
       const headers = { "Content-Type": "application/json" };
       if (authToken) headers.Authorization = `Bearer ${authToken}`;
-      const res = await fetch(`${API_BASE}/api/posts/generate`, {
+
+      // Ensure userId is sent as a string
+      const userId = String(session?.user?.id);
+
+      // Validate userId before sending
+      if (!userId || userId === 'undefined' || userId === 'null') {
+        console.error('Invalid userId for generate:', userId);
+        setGenerated("Error: Invalid user session. Please log in again.");
+        // Force logout to clear corrupted session
+        signOut();
+        return;
+      }
+
+      const res = await authenticatedFetch('/api/posts/generate', {
         method: "POST",
         headers,
         body: JSON.stringify({
           topics,
           tone,
           useImage,
-          userId: session?.user?.id,
+          userId: userId,
           postType,
           jobDetails: postType === "job" ? jobDetails : null,
           imageUrl: imageUrl || undefined,
           imageSource,
         }),
-      });
+      }, signOut);
 
       if (!res.ok) {
         throw new Error(`HTTP error! status: ${res.status}`);
@@ -169,20 +185,199 @@ export default function Dashboard() {
     }
   }, [isAuthenticated, topics, tone, useImage, session?.user?.id, postType, jobDetails, imageUrl, imageSource]);
 
+  const loadInitialEditing = useCallback(() => {
+    if (isAuthenticated) return;
+    const saved = getGuestDraft();
+    if (saved != null) setEditing(saved);
+    else setEditing(DEFAULT_TEMPLATE);
+  }, [isAuthenticated]);
+
+  // Redirect to login if not authenticated or has invalid user ID
+  useEffect(() => {
+    if (status === 'unauthenticated' || (status === 'authenticated' && !hasValidUserId)) {
+      router.replace('/login');
+    }
+  }, [status, hasValidUserId, router]);
+
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      loadInitialEditing();
+    }
+  }, [status, loadInitialEditing]);
+
+  useEffect(() => {
+    if (!isAuthenticated && editing !== "" && editing !== DEFAULT_TEMPLATE) {
+      saveGuestDraft(editing);
+    }
+  }, [isAuthenticated, editing]);
+
+  // Render different content based on state, but always call all hooks first
+  let content;
+
+  if (status === 'loading' || !hasValidUserId) {
+    content = (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="h-9 w-9 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+      </div>
+    );
+  } else {
+    content = (
+      <motion.div
+        className="mx-auto max-w-6xl"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        <motion.header
+          className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+          variants={itemVariants}
+        >
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+              Tech Post Generator
+            </h1>
+            <p className="text-sm text-slate-600 sm:text-base">
+              {isAuthenticated
+                ? `Welcome back, ${session?.user?.name || 'User'}!`
+                : 'Try our AI-powered post generator'}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            {!isAuthenticated && (
+              <Link
+                href="/login?mode=register"
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+              >
+                Sign up
+              </Link>
+            )}
+            <button
+              type="button"
+              onClick={signOut}
+              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+            >
+              {isAuthenticated ? 'Sign out' : 'Try as guest'}
+            </button>
+          </div>
+        </motion.header>
+
+        <motion.div
+          className="mb-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3"
+          variants={itemVariants}
+        >
+          <motion.div variants={itemVariants}>
+            <PostTypeSelector postType={postType} setPostType={setPostType} />
+          </motion.div>
+
+          <motion.div variants={itemVariants}>
+            <TopicSelector topics={topics} setTopics={setTopics} />
+          </motion.div>
+
+          <motion.div variants={itemVariants}>
+            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h3 className="mb-4 text-sm font-medium text-slate-900">Tone</h3>
+              <select
+                value={tone}
+                onChange={(e) => setTone(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none transition-colors focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+              >
+                <option value="professional">Professional</option>
+                <option value="casual">Casual</option>
+                <option value="motivational">Motivational</option>
+              </select>
+            </div>
+          </motion.div>
+        </motion.div>
+
+        {postType === "job" && (
+          <motion.div className="mb-8" variants={itemVariants}>
+            <JobDetailsForm jobDetails={jobDetails} setJobDetails={setJobDetails} />
+          </motion.div>
+        )}
+
+        <motion.div
+          className="mb-8 grid gap-6 lg:grid-cols-2"
+          variants={itemVariants}
+        >
+          <motion.div variants={itemVariants}>
+            <PostEditor
+              editing={editing}
+              setEditing={setEditing}
+              generate={generate}
+              loading={loading}
+              isAuthenticated={isAuthenticated}
+              hasValidUserId={hasValidUserId}
+            />
+          </motion.div>
+
+          <motion.div variants={itemVariants}>
+            <ImageUploader
+              useImage={useImage}
+              setUseImage={setUseImage}
+              imageUrl={imageUrl}
+              setImageUrl={setImageUrl}
+              imageSource={imageSource}
+              setImageSource={setImageSource}
+              isAuthenticated={isAuthenticated}
+            />
+          </motion.div>
+        </motion.div>
+
+        <motion.div variants={itemVariants}>
+          <LinkedInPreview
+            postType={postType}
+            topics={topics}
+            tone={tone}
+            generated={generated}
+            editing={editing}
+            useImage={useImage}
+            imageUrl={imageUrl}
+            jobDetails={jobDetails}
+            isAuthenticated={isAuthenticated}
+            hasValidUserId={hasValidUserId}
+            saving={saving}
+            saveMessage={saveMessage}
+            onSave={savePost}
+          />
+        </motion.div>
+      </motion.div>
+    );
+  }
+
   /** Save post for logged-in user (API -> DB) */
   async function savePost() {
-    if (!isAuthenticated || !session?.user?.id) return;
+    if (!isAuthenticated || !hasValidUserId) {
+      setSaveMessage("Please log in to save posts.");
+      return;
+    }
     try {
       setSaving(true);
       setSaveMessage("");
       const authToken = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
       const headers = { "Content-Type": "application/json" };
       if (authToken) headers.Authorization = `Bearer ${authToken}`;
-      const res = await fetch(`${API_BASE}/api/posts`, {
+
+      // Ensure userId is sent as a string
+      const userId = String(session.user.id);
+
+      console.log('Session user object:', session.user);
+      console.log('Raw session.user.id:', session.user.id, 'type:', typeof session.user.id);
+      console.log('Saving post with userId:', userId, 'type:', typeof userId);
+
+      // Validate userId before sending
+      if (!userId || userId === 'undefined' || userId === 'null') {
+        console.error('Invalid userId:', userId);
+        setSaveMessage("Invalid user session. Please log in again.");
+        // Force logout to clear corrupted session
+        signOut();
+        return;
+      }
+
+      const res = await authenticatedFetch('/api/posts', {
         method: "POST",
         headers,
         body: JSON.stringify({
-          userId: session.user.id,
+          userId: userId,
           content: editing,
           topics,
           tone,
@@ -191,12 +386,13 @@ export default function Dashboard() {
           imageSource,
           jobDetails: postType === "job" ? jobDetails : null,
         }),
-      });
+      }, signOut);
       const data = await res.json();
       if (data.ok) {
         setSaveMessage("Saved.");
         setTimeout(() => setSaveMessage(""), 2000);
       } else {
+        console.error('Save failed with error:', data.error);
         setSaveMessage(data.error || "Save failed.");
       }
     } catch (err) {
@@ -216,27 +412,8 @@ export default function Dashboard() {
     saveGuestDraft(text);
   }
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: { duration: 0.4, when: "beforeChildren", staggerChildren: 0.06 },
-    },
-  };
-
-  const itemVariants = {
-    hidden: { y: 10, opacity: 0 },
-    visible: { y: 0, opacity: 1, transition: { duration: 0.28 } },
-  };
-
-  if (status === "loading") {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
-      </div>
-    );
-  }
-
+  // The render content is now handled in the conditional rendering above
+  // This ensures all hooks are called before any conditional returns
   return (
     <motion.div
       className="mx-auto max-w-6xl"
@@ -316,7 +493,7 @@ export default function Dashboard() {
               disabled={!isAuthenticated}
               className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50"
             />
-            Include image
+            Use AI image
           </label>
         </div>
         {isAuthenticated && postType === "regular" ? (

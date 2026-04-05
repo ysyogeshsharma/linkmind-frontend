@@ -2,6 +2,8 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { NEXT_PUBLIC_API_URL } from '../lib/config';
+import { authenticatedUpload } from '../utils/api';
+import { useSession } from '../app/SessionWrapper';
 
 export default function ImageUploader({
   onImageUpload,
@@ -11,6 +13,7 @@ export default function ImageUploader({
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [uploadKey, setUploadKey] = useState(0); // Key to force input re-mount
+  const { signOut } = useSession();
 
   const handleFileSelect = async (e) => {
     const file = e.target.files?.[0];
@@ -35,13 +38,7 @@ export default function ImageUploader({
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await fetch(`${NEXT_PUBLIC_API_URL}/api/posts/upload`, {
-        method: 'POST',
-        body: formData,
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-        },
-      });
+      const response = await authenticatedUpload('/api/posts/upload', formData, signOut);
 
       if (!response.ok) {
         throw new Error('Upload failed');
